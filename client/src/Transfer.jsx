@@ -1,7 +1,10 @@
 import { useState } from "react";
 import server from "./server";
+import { bls12_381 as bls } from "ethereum-cryptography/bls.js";
+import { toHex, hexToBytes, utf8ToBytes } from "ethereum-cryptography/utils.js";
+import { keccak256 } from "ethereum-cryptography/keccak.js";
 
-function Transfer({ address, setBalance }) {
+function Transfer({ address, setBalance, privateKey }) {
   const [sendAmount, setSendAmount] = useState("");
   const [recipient, setRecipient] = useState("");
 
@@ -9,7 +12,19 @@ function Transfer({ address, setBalance }) {
 
   async function transfer(evt) {
     evt.preventDefault();
+    //i started makin changes from here
+    const messageBytes = utf8ToBytes(recipient + parseInt(sendAmount));
 
+    // Hash the message
+    const hashedMessage = keccak256(messageBytes);
+
+    // Sign the hashed message using the private key
+    const signature = bls.sign(toHex(hashedMessage), privateKey);
+
+    // Get the public key (hex-encoded)
+    const publicKey = toHex(bls.getPublicKey(privateKey));
+
+    //and it ends here
     try {
       const {
         data: { balance },
@@ -17,6 +32,9 @@ function Transfer({ address, setBalance }) {
         sender: address,
         amount: parseInt(sendAmount),
         recipient,
+        signature: toHex(signature),
+        message: toHex(hashedMessage),
+        publicKey,
       });
       setBalance(balance);
     } catch (ex) {
